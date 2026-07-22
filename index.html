@@ -213,11 +213,11 @@
       .detail-content {
         flex-direction: column;
       }
-      
+
       .detail-left {
         width: 100%;
       }
-      
+
       .detail-right {
         flex: none;
         width: 100%;
@@ -282,6 +282,102 @@
     .download-btn:hover {
       opacity: 0.8;
     }
+
+    /* 统计板块 */
+    #stats-panel {
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    #stats-panel.active {
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--bg-gray);
+      border: 1px solid var(--border-gray);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .stat-card .label {
+      font-size: 11px;
+      color: var(--text-gray);
+      margin-bottom: 4px;
+    }
+
+    .stat-card .value {
+      font-size: 15px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    .stat-card .sub {
+      font-size: 11px;
+      color: var(--text-gray);
+      margin-top: 2px;
+    }
+
+    #st-bitmaps {
+      width: 100%;
+      max-width: 540px;
+    }
+
+    .plane-wrap canvas {
+      display: block;
+      width: 260px;
+      height: 260px;
+      max-width: 100%;
+      border: 1px solid var(--border-gray);
+      image-rendering: pixelated;
+    }
+
+    .plane-wrap .plane-label {
+      font-size: 10px;
+      color: var(--text-gray);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .coverage-bar .fill {
+      height: 100%;
+      background: var(--text-main);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .block-list {
+      font-size: 11px;
+      color: var(--text-gray);
+      line-height: 1.6;
+      margin-top: 4px;
+    }
+
+    .block-list span {
+      display: inline-block;
+      background: var(--border-gray);
+      padding: 4px 10px;
+      border-radius: 5px;
+      margin: 3px 3px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .block-list span:hover {
+      background: #d0d0d0;
+    }
+
+    .block-list span.active {
+      background: var(--text-main);
+      color: var(--bg);
+    }
   </style>
 </head>
 
@@ -292,14 +388,6 @@
       <strong style="margin-right:8px;">在线字体查看器</strong>
       <input type="file" id="loader" accept=".ttf,.otf,.woff,.woff2">
     </div>
-    <div class="ctrl-group">
-      <span>搜索</span>
-      <input type="text" id="search" placeholder="Name / Unicode">
-    </div>
-    <div class="ctrl-group">
-      <span>每页</span>
-      <input type="number" id="page-size" value="100" style="width: 60px;">
-    </div>
   </header>
 
   <div class="preview-box">
@@ -307,6 +395,105 @@
     <div class="size-info">
       <input type="range" id="size-slider" min="12" max="160" value="44">
       <span id="sz-num" style="min-width: 40px; text-align: right;">44px</span>
+    </div>
+  </div>
+
+  <div id="stats-panel">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">字符数量</div>
+        <div class="value" id="st-count">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">字符范围</div>
+        <div class="value" id="st-range">-</div>
+        <div class="sub" id="st-range-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">字形类型</div>
+        <div class="value" id="st-glyph-type">-</div>
+        <div class="sub" id="st-glyph-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">字体元信息</div>
+        <div class="value" id="st-meta">-</div>
+        <div class="sub" id="st-meta-sub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">GB2312覆盖度</div>
+        <div class="value" id="st-gb2312">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-gb2312-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">GBK覆盖度</div>
+        <div class="value" id="st-gbk">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-gbk-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">JIS X 0208覆盖度</div>
+        <div class="value" id="st-jis">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-jis-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Big5覆盖度</div>
+        <div class="value" id="st-big5">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-big5-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">通用规范一级字覆盖度</div>
+        <div class="value" id="st-tongyong1">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-tongyong1-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">通用规范二级字覆盖度</div>
+        <div class="value" id="st-tongyong2">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-tongyong2-bar"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">通用规范三级字覆盖度</div>
+        <div class="value" id="st-tongyong3">-</div>
+        <div class="coverage-bar">
+          <div class="fill" id="st-tongyong3-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="coverage-panel"
+    style="display:none; background:var(--bg-gray); padding:20px; border:1px solid var(--border-gray); border-radius:12px; margin-bottom:20px;">
+    <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:stretch;">
+      <div style="flex:0 0 auto;">
+        <div class="label" style="font-size:11px; color:var(--text-gray); margin-bottom:6px;">字符 bitmap
+        </div>
+        <div id="st-bitmaps" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <div class="label" style="font-size:11px; color:var(--text-gray); margin-bottom:6px;">Unicode区块覆盖度</div>
+        <div class="block-list" id="st-blocks">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:24px; margin-bottom:12px; font-size:14px;">
+    <div class="ctrl-group">
+      <span>搜索</span>
+      <input type="text" id="search" placeholder="Name / Unicode">
+    </div>
+    <div class="ctrl-group">
+      <span>每页</span>
+      <input type="number" id="page-size" value="100" style="width: 60px;">
     </div>
   </div>
 
@@ -340,6 +527,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@2.0.0/dist/opentype.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/wawoff2@2.0.1/build/decompress_binding.js"></script>
+  <script src="unicode.config.js"></script>
 
   <script>
     let fontData = null, allGlyphs = [], filtered = [], page = 1, fontFace = null;
@@ -372,7 +560,9 @@
         allGlyphs = Object.values(fontData.glyphs.glyphs).filter(g => g.unicode || g.name);
         filtered = allGlyphs;
         page = 1;
+        buildUnicodeSet();
         render();
+        updateStats();
       } catch (err) {
         alert('字体加载失败');
       }
@@ -486,9 +676,9 @@
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
       const height = canvas.height;
-      
+
       ctx.clearRect(0, 0, width, height);
-      
+
       // em square放在画布中间1/3区域
       const thirdW = width / 3;
       const thirdH = height / 3;
@@ -498,12 +688,12 @@
       const emScale = emDisplaySize / emSize;
       const glyphLeft = thirdW;
       const baselineY = emTop + ascender * emScale;
-      
+
       // 绘制em square边框
       ctx.strokeStyle = '#e8e8e8';
       ctx.lineWidth = 1;
       ctx.strokeRect(glyphLeft, emTop, emDisplaySize, emDisplaySize);
-      
+
       // 基线
       ctx.strokeStyle = '#000';
       ctx.setLineDash([4, 2]);
@@ -512,7 +702,7 @@
       ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY);
       ctx.stroke();
       ctx.setLineDash([]);
-      
+
       // ascender线
       ctx.strokeStyle = '#4CAF50';
       ctx.setLineDash([4, 2]);
@@ -521,7 +711,7 @@
       ctx.lineTo(glyphLeft + emDisplaySize + 30, emTop);
       ctx.stroke();
       ctx.setLineDash([]);
-      
+
       // descender线
       ctx.strokeStyle = '#F44336';
       ctx.setLineDash([4, 2]);
@@ -530,7 +720,7 @@
       ctx.lineTo(glyphLeft + emDisplaySize + 30, emBottom);
       ctx.stroke();
       ctx.setLineDash([]);
-      
+
       // 用字体直接画字符
       if (hasUnicode) {
         ctx.font = `${emDisplaySize}px CustomFont`;
@@ -539,13 +729,13 @@
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(String.fromCodePoint(g.unicode), glyphLeft, baselineY);
       }
-      
+
       // 标签
       ctx.font = '16px ui-monospace, SFMono-Regular, monospace';
       ctx.fillStyle = '#86868b';
       ctx.textAlign = 'left';
       const labelX = glyphLeft + emDisplaySize + 40;
-      
+
       ctx.fillText('baseline', labelX, baselineY + 6);
       ctx.fillText(`ascender: ${ascender}`, labelX, emTop + 6);
       ctx.fillText(`descender: ${descender}`, labelX, emBottom + 6);
@@ -558,6 +748,299 @@
 
     // ESC 键关闭
     window.onkeydown = (e) => { if (e.key === 'Escape') closeModal(); };
+
+    // ========== 统计功能 ==========
+    let selectedBlockIndex = -1;
+    let lastUnicodes = [];
+
+    function hasGlyph(unicode) {
+      if (!fontData || !unicode) return false;
+      if (fontData.glyphs.glyphs[unicode] !== undefined) return true;
+      if (fontData.glyphs.glyphs[String(unicode)] !== undefined) return true;
+      return false;
+    }
+
+    // 预构建 unicode Set，用于 O(1) 查找
+    let glyphUnicodeSet = null;
+    function buildUnicodeSet() {
+      glyphUnicodeSet = new Set();
+      if (!fontData) return;
+      const glyphs = Object.values(fontData.glyphs.glyphs);
+      for (const g of glyphs) {
+        if (g.unicode !== undefined && !isNaN(g.unicode)) {
+          glyphUnicodeSet.add(g.unicode);
+        }
+      }
+    }
+
+    function hasGlyphFast(unicode) {
+      if (!glyphUnicodeSet) return false;
+      return glyphUnicodeSet.has(unicode);
+    }
+
+    // 判断是否为有定义的可打印字符（排除控制符、surrogate、未分配区）
+    function isDefinedChar(u) {
+      if (u < 0x20) return false; // C0 控制符全部排除
+      if (u >= 0x7F && u <= 0x9F) return false; // C1 控制符
+      if (u >= 0xD800 && u <= 0xDFFF) return false; // Surrogates
+      if (u >= 0xFFF0 && u <= 0xFFFF) return false; // Specials / noncharacters
+      if (u >= 0xFDD0 && u <= 0xFDEF) return false; // Noncharacters
+      // Supplementary plane: exclude surrogates, noncharacters
+      if (u >= 0x10000) {
+        if ((u & 0xFFFF) === 0xFFFE || (u & 0xFFFF) === 0xFFFF) return false; // Plane noncharacters
+      }
+      return true;
+    }
+
+    function calcRangeCoverage(ranges) {
+      let total = 0, found = 0;
+      for (const [start, end] of ranges) {
+        for (let i = start; i <= end; i++) {
+          if (!isDefinedChar(i)) continue;
+          total++;
+          if (hasGlyphFast(i)) found++;
+        }
+      }
+      return total > 0 ? { total, found, percent: (found / total * 100).toFixed(2) } : null;
+    }
+
+    function calcCharSetCoverage(charSets) {
+      let total = 0, found = 0;
+      for (const s of charSets) {
+        for (const ch of s) {
+          const cp = ch.codePointAt(0);
+          if (!isDefinedChar(cp)) continue;
+          total++;
+          if (hasGlyphFast(cp)) found++;
+        }
+      }
+      return total > 0 ? { total, found, percent: (found / total * 100).toFixed(2) } : null;
+    }
+
+    // 覆盖度百分比→颜色：绿(100%)→黄(50%)→红(0%)
+    function coverageColor(percent) {
+      const p = Math.max(0, Math.min(100, parseFloat(percent)));
+      const hue = p * 1.2; // 100→120(green), 0→0(red)
+      return `hsl(${hue}, 80%, 40%)`;
+    }
+
+    function updateStats() {
+      if (!fontData) return;
+      $('stats-panel').classList.add('active');
+      $('coverage-panel').style.display = 'block';
+
+      const unicodeGlyphs = allGlyphs.filter(g => g.unicode);
+      const count = unicodeGlyphs.length;
+      const unicodes = unicodeGlyphs.map(g => g.unicode);
+      const min = Math.min(...unicodes);
+      const max = Math.max(...unicodes);
+
+      $('st-count').textContent = count;
+      $('st-range').textContent = `U+${min.toString(16).toUpperCase()} ~ U+${max.toString(16).toUpperCase()}`;
+      $('st-range-sub').textContent = `${min} ~ ${max} (${(max - min + 1).toLocaleString()} 码位)`;
+
+      // 字形类型
+      const simple = allGlyphs.filter(g => !g.components || g.components.length === 0).length;
+      const composite = allGlyphs.length - simple;
+      $('st-glyph-type').textContent = `${simple} 简单 / ${composite} 复合`;
+      $('st-glyph-sub').textContent = `共 ${allGlyphs.length} 个字形`;
+
+      // 字体元信息
+      const name = fontData.names.fontFamily?.en || fontData.names.fontFamily?.zh || '未知';
+      const version = fontData.names.version?.en || '-';
+      $('st-meta').textContent = name;
+      $('st-meta-sub').textContent = `v${version} | em=${fontData.unitsPerEm}`;
+
+      // 覆盖度计算
+      const gb2312 = calcCharSetCoverage(GB2312_CHARS);
+      if (gb2312) {
+        $('st-gb2312').textContent = `${gb2312.found}/${gb2312.total}`;
+        $('st-gb2312').style.color = coverageColor(gb2312.percent);
+        $('st-gb2312-bar').style.width = gb2312.percent + '%';
+      }
+
+      // GBK
+      const gbk = calcCharSetCoverage(GBK_CHARS);
+      if (gbk) {
+        $('st-gbk').textContent = `${gbk.found}/${gbk.total}`;
+        $('st-gbk').style.color = coverageColor(gbk.percent);
+        $('st-gbk-bar').style.width = gbk.percent + '%';
+      }
+
+      // JIS X 0208
+      const jis = calcCharSetCoverage(JIS_CHARS);
+      if (jis) {
+        $('st-jis').textContent = `${jis.found}/${jis.total}`;
+        $('st-jis').style.color = coverageColor(jis.percent);
+        $('st-jis-bar').style.width = jis.percent + '%';
+      }
+
+      // Big5
+      const big5 = calcCharSetCoverage(BIG5_CHARS);
+      if (big5) {
+        $('st-big5').textContent = `${big5.found}/${big5.total}`;
+        $('st-big5').style.color = coverageColor(big5.percent);
+        $('st-big5-bar').style.width = big5.percent + '%';
+      }
+
+      // 通用规范汉字表
+      const tongyong1 = calcCharSetCoverage(TONGYONG_L1);
+      if (tongyong1) {
+        $('st-tongyong1').textContent = `${tongyong1.found}/${tongyong1.total}`;
+        $('st-tongyong1').style.color = coverageColor(tongyong1.percent);
+        $('st-tongyong1-bar').style.width = tongyong1.percent + '%';
+      }
+      const tongyong2 = calcCharSetCoverage(TONGYONG_L2);
+      if (tongyong2) {
+        $('st-tongyong2').textContent = `${tongyong2.found}/${tongyong2.total}`;
+        $('st-tongyong2').style.color = coverageColor(tongyong2.percent);
+        $('st-tongyong2-bar').style.width = tongyong2.percent + '%';
+      }
+      const tongyong3 = calcCharSetCoverage(TONGYONG_L3);
+      if (tongyong3) {
+        $('st-tongyong3').textContent = `${tongyong3.found}/${tongyong3.total}`;
+        $('st-tongyong3').style.color = coverageColor(tongyong3.percent);
+        $('st-tongyong3-bar').style.width = tongyong3.percent + '%';
+      }
+
+      // Bitmap
+      drawBitmaps(unicodes);
+
+      // Unicode区块
+      const coveredBlocks = UNICODE_BLOCKS.map((b, i) => {
+        let has = false;
+        for (let j = b.range[0]; j <= b.range[1]; j++) {
+          if (isDefinedChar(j) && hasGlyphFast(j)) { has = true; break; }
+        }
+        return { ...b, index: i, covered: has };
+      }).filter(b => b.covered);
+
+      $('st-blocks').innerHTML = coveredBlocks.length > 0
+        ? coveredBlocks.map(b => {
+          const cls = b.index === selectedBlockIndex ? ' active' : '';
+          const { found, total, percent } = (() => {
+            let t = 0, f = 0;
+            for (let i = b.range[0]; i <= b.range[1]; i++) {
+              if (!isDefinedChar(i)) continue;
+              t++;
+              if (hasGlyphFast(i)) f++;
+            }
+            return t > 0 ? { found: f, total: t, percent: (f / t * 100) } : { found: 0, total: 0, percent: 0 };
+          })();
+          return `<span class="${cls}" data-block="${b.index}" title="${b.name}: ${found}/${total}">${b.name} <span style="background:none;padding:0;border-radius:0;color:${coverageColor(percent)}">${found}/${total}</span></span>`;
+        }).join('')
+        : '<span>无CJK区块覆盖</span>';
+
+      // 绑定区块点击事件
+      $('st-blocks').querySelectorAll('span[data-block]').forEach(el => {
+        el.onclick = () => {
+          const idx = parseInt(el.dataset.block);
+          selectedBlockIndex = selectedBlockIndex === idx ? -1 : idx;
+          drawBitmaps(lastUnicodes);
+          $('st-blocks').querySelectorAll('span[data-block]').forEach(s => {
+            s.classList.toggle('active', parseInt(s.dataset.block) === selectedBlockIndex);
+          });
+        };
+      });
+    }
+
+    function drawBitmaps(unicodes) {
+      lastUnicodes = unicodes;
+      const container = $('st-bitmaps');
+      container.innerHTML = '';
+
+      // 确定需要绘制哪些平面（从0到最后一个字符所在的平面）
+      const maxUnicode = unicodes.length > 0 ? Math.max(...unicodes) : 0;
+      const maxPlane = Math.floor(maxUnicode / 0x10000);
+      const planes = [];
+      for (let p = 0; p <= maxPlane; p++) {
+        planes.push(p);
+      }
+
+      const planeContexts = [];
+
+      for (const plane of planes) {
+        // 检查该平面是否有字符，没有就跳过
+        const planeHasChars = unicodes.some(u => Math.floor(u / 0x10000) === plane);
+        if (!planeHasChars) continue;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'plane-wrap';
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        canvas.dataset.plane = plane;
+        const label = document.createElement('div');
+        label.className = 'plane-label';
+        label.textContent = plane === 0 ? 'BMP (U+0000~U+FFFF)' : `Plane ${plane} (U+${(plane * 0x10000).toString(16).toUpperCase()}~U+${((plane + 1) * 0x10000 - 1).toString(16).toUpperCase()})`;
+        wrap.appendChild(canvas);
+        wrap.appendChild(label);
+        container.appendChild(wrap);
+
+        const ctx = canvas.getContext('2d');
+        planeContexts.push({ plane, ctx, canvas });
+
+        // 绘制底色
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 256, 256);
+
+        // 绘制该平面上的字符
+        for (const u of unicodes) {
+          const uPlane = Math.floor(u / 0x10000);
+          if (uPlane !== plane) continue;
+          const offset = u - plane * 0x10000;
+          const x = offset % 256;
+          const y = Math.floor(offset / 256);
+          ctx.fillStyle = '#000';
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+
+      // 绘制选中区块的遮罩（有字蓝色，无字浅蓝色）
+      if (selectedBlockIndex >= 0 && selectedBlockIndex < UNICODE_BLOCKS.length) {
+        const block = UNICODE_BLOCKS[selectedBlockIndex];
+        const [start, end] = block.range;
+
+        for (const { plane, ctx } of planeContexts) {
+          const planeStart = plane * 0x10000;
+          const planeEnd = planeStart + 0xFFFF;
+          const visStart = Math.max(start, planeStart);
+          const visEnd = Math.min(end, planeEnd);
+          if (visStart > visEnd) continue;
+
+          const localStart = visStart - planeStart;
+          const localEnd = visEnd - planeStart;
+          const rowStart = Math.floor(localStart / 256);
+          const rowEnd = Math.floor(localEnd / 256);
+
+          for (let row = rowStart; row <= rowEnd; row++) {
+            let col0, col1;
+            if (row === rowStart && row === rowEnd) {
+              col0 = localStart % 256;
+              col1 = localEnd % 256;
+            } else if (row === rowStart) {
+              col0 = localStart % 256;
+              col1 = 255;
+            } else if (row === rowEnd) {
+              col0 = 0;
+              col1 = localEnd % 256;
+            } else {
+              col0 = 0;
+              col1 = 255;
+            }
+            for (let col = col0; col <= col1; col++) {
+              const unicode = planeStart + row * 256 + col;
+              if (hasGlyphFast(unicode)) {
+                ctx.fillStyle = 'rgba(0, 100, 255, 1)';
+              } else {
+                ctx.fillStyle = 'rgba(0, 100, 255, 0.2)';
+              }
+              ctx.fillRect(col, row, 1, 1);
+            }
+          }
+        }
+      }
+    }
   </script>
 
 </body>
