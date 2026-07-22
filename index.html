@@ -188,8 +188,40 @@
     }
 
     .detail-card {
-      max-width: 360px;
+      width: 100%;
+      max-width: 800px;
       margin: 0 auto;
+    }
+
+    .detail-content {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .detail-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .detail-right {
+      flex: 0 0 280px;
+      min-width: 0;
+    }
+
+    @media (max-width: 600px) {
+      .detail-content {
+        flex-direction: column;
+      }
+      
+      .detail-left {
+        width: 100%;
+      }
+      
+      .detail-right {
+        flex: none;
+        width: 100%;
+      }
     }
 
     .modal-glyph-preview {
@@ -211,6 +243,19 @@
       font-size: 13px;
       font-family: monospace;
       margin-bottom: 20px;
+    }
+
+    .glyph-canvas-container {
+      border: 1px solid var(--border-gray);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    #glyph-canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
     }
 
     .btn-group {
@@ -275,11 +320,20 @@
 
   <div class="detail-panel" id="modal">
     <div class="detail-card">
-      <div class="modal-glyph-preview" id="m-char"></div>
-      <div class="modal-info" id="m-info"></div>
-      <div class="btn-group">
-        <button class="copy-btn" id="m-copy">复制字符</button>
-        <button class="download-btn" id="m-dl">下载SVG</button>
+      <div class="detail-content">
+        <div class="detail-left">
+          <div class="glyph-canvas-container">
+            <canvas id="glyph-canvas" width="1000" height="1000"></canvas>
+          </div>
+        </div>
+        <div class="detail-right">
+          <div class="modal-glyph-preview" id="m-char"></div>
+          <div class="modal-info" id="m-info"></div>
+          <div class="btn-group">
+            <button class="copy-btn" id="m-copy">复制字符</button>
+            <button class="download-btn" id="m-dl">下载SVG</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -372,6 +426,7 @@
       // 2. 获取字体设计参数，计算缩放比例
       const emSize = fontData.unitsPerEm;
       const ascender = fontData.ascender;
+      const descender = fontData.descender;
       const scale = exportSize / emSize;
 
       // 3. 创建导出路径：将 y 坐标设为 ascender 以保证字符落在画布内
@@ -389,7 +444,10 @@
             <svg viewBox="0 0 ${exportSize} ${exportSize}" style="width:100%; height:100%; fill:var(--text-main);">${pathData}</svg>
         </div>`;
 
-      // 5. 信息显示
+      // 5. Canvas绘制字形和布局信息
+      drawGlyphLayout(g, emSize, ascender, descender, hasUnicode);
+
+      // 6. 信息显示
       const unicodeStr = hasUnicode ? `U+${g.unicode.toString(16).toUpperCase()}` : "无编码";
       $('m-info').innerHTML = `
         <div><strong>名称:</strong> ${g.name || 'unnamed'}</div>
@@ -397,7 +455,7 @@
         <div><strong>导出尺寸:</strong> ${exportSize}px (方块)</div>
     `;
 
-      // 6. 复制与下载逻辑
+      // 7. 复制与下载逻辑
       const copyBtn = $('m-copy');
       copyBtn.disabled = !hasUnicode;
       copyBtn.innerText = hasUnicode ? '复制字符' : '不可复制';
@@ -421,6 +479,77 @@
       };
 
       $('modal').classList.add('active');
+    }
+
+    function drawGlyphLayout(g, emSize, ascender, descender, hasUnicode) {
+      const canvas = $('glyph-canvas');
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      ctx.clearRect(0, 0, width, height);
+      
+      // em square放在画布中间1/3区域
+      const thirdW = width / 3;
+      const thirdH = height / 3;
+      const emTop = thirdH;
+      const emBottom = thirdH * 2;
+      const emDisplaySize = emBottom - emTop;
+      const emScale = emDisplaySize / emSize;
+      const glyphLeft = thirdW;
+      const baselineY = emTop + ascender * emScale;
+      
+      // 绘制em square边框
+      ctx.strokeStyle = '#e8e8e8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(glyphLeft, emTop, emDisplaySize, emDisplaySize);
+      
+      // 基线
+      ctx.strokeStyle = '#000';
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(glyphLeft - 30, baselineY);
+      ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // ascender线
+      ctx.strokeStyle = '#4CAF50';
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(glyphLeft - 30, emTop);
+      ctx.lineTo(glyphLeft + emDisplaySize + 30, emTop);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // descender线
+      ctx.strokeStyle = '#F44336';
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(glyphLeft - 30, emBottom);
+      ctx.lineTo(glyphLeft + emDisplaySize + 30, emBottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // 用字体直接画字符
+      if (hasUnicode) {
+        ctx.font = `${emDisplaySize}px CustomFont`;
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(String.fromCodePoint(g.unicode), glyphLeft, baselineY);
+      }
+      
+      // 标签
+      ctx.font = '16px ui-monospace, SFMono-Regular, monospace';
+      ctx.fillStyle = '#86868b';
+      ctx.textAlign = 'left';
+      const labelX = glyphLeft + emDisplaySize + 40;
+      
+      ctx.fillText('baseline', labelX, baselineY + 6);
+      ctx.fillText(`ascender: ${ascender}`, labelX, emTop + 6);
+      ctx.fillText(`descender: ${descender}`, labelX, emBottom + 6);
+      ctx.fillText(`em: ${emSize}`, labelX, emTop + emDisplaySize / 2 + 6);
     }
 
     function closeModal(e) {
