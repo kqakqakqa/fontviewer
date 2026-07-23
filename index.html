@@ -306,22 +306,48 @@
       padding: 14px;
     }
 
-    .stat-card .label {
+    .stat-card>.label {
       font-size: 11px;
       color: var(--text-gray);
       margin-bottom: 4px;
     }
 
-    .stat-card .value {
+    .stat-card>.value {
       font-size: 15px;
       font-weight: 600;
       font-family: ui-monospace, SFMono-Regular, monospace;
     }
 
-    .stat-card .sub {
+    .stat-card>.sub {
       font-size: 11px;
       color: var(--text-gray);
       margin-top: 2px;
+    }
+
+    .stat-card>.name-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 6px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    .stat-card .name-list>.name-row {
+      display: flex;
+      gap: 8px;
+      padding: 2px 0;
+      border-bottom: 1px solid var(--border-gray);
+    }
+
+    .stat-card .name-list .name-row>.name-key {
+      color: var(--text-gray);
+      flex: 0 0 auto;
+      min-width: 120px;
+    }
+
+    .stat-card .name-list .name-row>.name-val {
+      flex: 1;
+      word-break: break-all;
     }
 
     #st-bitmaps {
@@ -329,7 +355,7 @@
       max-width: 540px;
     }
 
-    .plane-wrap canvas {
+    .plane-wrap>canvas {
       display: block;
       width: 260px;
       height: 260px;
@@ -338,14 +364,14 @@
       image-rendering: pixelated;
     }
 
-    .plane-wrap .plane-label {
+    .plane-wrap>.plane-label {
       font-size: 10px;
       color: var(--text-gray);
       margin-top: 4px;
       text-align: center;
     }
 
-    .coverage-bar .fill {
+    .coverage-bar>.fill {
       height: 100%;
       background: var(--text-main);
       border-radius: 3px;
@@ -359,10 +385,11 @@
       margin-top: 4px;
     }
 
-    .block-list span {
+    .block-list>span {
       display: inline-block;
-      background: var(--border-gray);
+      background: white;
       padding: 4px 10px;
+      border: 1px solid var(--border-gray);
       border-radius: 5px;
       margin: 3px 3px;
       cursor: pointer;
@@ -370,11 +397,11 @@
       transition: background 0.15s, color 0.15s;
     }
 
-    .block-list span:hover {
+    .block-list>span:hover {
       background: #d0d0d0;
     }
 
-    .block-list span.active {
+    .block-list>span.active {
       background: var(--text-main);
       color: var(--bg);
     }
@@ -414,10 +441,9 @@
         <div class="value" id="st-glyph-type">-</div>
         <div class="sub" id="st-glyph-sub"></div>
       </div>
-      <div class="stat-card">
-        <div class="label">字体元信息</div>
-        <div class="value" id="st-meta">-</div>
-        <div class="sub" id="st-meta-sub"></div>
+      <div class="stat-card" style="grid-column: 1 / -1;">
+        <div class="label">字体数据</div>
+        <div class="name-list" id="st-names"></div>
       </div>
       <div class="stat-card">
         <div class="label">GB2312覆盖度</div>
@@ -937,11 +963,63 @@
       $('st-glyph-type').textContent = `${simple} 简单 / ${composite} 复合`;
       $('st-glyph-sub').textContent = `共 ${allGlyphs.length} 个字形`;
 
-      // 字体元信息
-      const name = fontData.names.fontFamily?.en || fontData.names.fontFamily?.zh || '未知';
-      const version = fontData.names.version?.en || '-';
-      $('st-meta').textContent = name;
-      $('st-meta-sub').textContent = `v${version} | em=${fontData.unitsPerEm}`;
+      // 字体全部数据（跳过字形和大型映射表）
+      const nameList = $('st-names');
+      nameList.innerHTML = '';
+      let rowCount = 0;
+      const MAX_ROWS = 500;
+      const MAX_DEPTH = 5;
+      const SKIP_KEYS = new Set(['glyphs', 'glyphNames', 'glyphIndexMap', 'cmap', 'tables', 'kern', 'gsub', 'gpos', 'gdef', 'os2', 'head', 'hhea', 'hmtx', 'loca', 'glyf', 'cff', 'fvar', 'gvar', 'stat', 'encoding', 'position']);
+      function addRow(path, val) {
+        if (rowCount >= MAX_ROWS) return;
+        rowCount++;
+        const row = document.createElement('div');
+        row.className = 'name-row';
+        row.innerHTML = `<span class="name-key">${path}</span><span class="name-val">${val}</span>`;
+        nameList.appendChild(row);
+      }
+      const visited = new WeakSet([fontData]);
+      const queue = [{ obj: fontData, prefix: '', depth: 0 }];
+      while (queue.length > 0 && rowCount < MAX_ROWS) {
+        const { obj, prefix, depth } = queue.shift();
+        if (depth > MAX_DEPTH) continue;
+        for (const [k, v] of Object.entries(obj)) {
+          if (rowCount >= MAX_ROWS) break;
+          if (SKIP_KEYS.has(k)) continue;
+          const path = prefix ? `${prefix}.${k}` : k;
+          if (v === null || v === undefined) continue;
+          if (typeof v === 'object') {
+            if (visited.has(v)) continue;
+            visited.add(v);
+            const keys = Object.keys(v);
+            if (keys.length > 100 && keys.every(k2 => !isNaN(k2))) {
+              addRow(path, `[Map: ${keys.length} entries]`);
+            } else if (Array.isArray(v)) {
+              if (v.length > 50) { addRow(path, `[Array: ${v.length} items]`); }
+              else {
+                v.forEach((item, i) => {
+                  if (typeof item === 'object' && item !== null && !visited.has(item)) {
+                    visited.add(item);
+                    queue.push({ obj: item, prefix: `${path}[${i}]`, depth: depth + 1 });
+                  } else if (typeof item !== 'object') {
+                    addRow(`${path}[${i}]`, item);
+                  }
+                });
+              }
+            } else {
+              queue.push({ obj: v, prefix: path, depth: depth + 1 });
+            }
+          } else {
+            addRow(path, v);
+          }
+        }
+      }
+      if (rowCount >= MAX_ROWS) {
+        const hint = document.createElement('div');
+        hint.className = 'name-row';
+        hint.innerHTML = `<span class="name-key">...</span><span class="name-val">已截断，共显示 ${MAX_ROWS} 条</span>`;
+        nameList.appendChild(hint);
+      }
 
       // 覆盖度计算
       const gb2312 = calcCharSetCoverage(GB2312_CHARS);
