@@ -615,12 +615,12 @@
 
       // 2. 获取字体设计参数，计算缩放比例
       const emSize = fontData.unitsPerEm;
-      const ascender = fontData.ascender;
-      const descender = fontData.descender;
+      const ascent = fontData.ascender;
+      const descent = fontData.descender;
       const scale = exportSize / emSize;
 
-      // 3. 创建导出路径：将 y 坐标设为 ascender 以保证字符落在画布内
-      const path = g.getPath(0, ascender * scale, exportSize);
+      // 3. 创建导出路径：将 y 坐标设为 ascent 以保证字符落在画布内
+      const path = g.getPath(0, ascent * scale, exportSize);
       const pathData = path.toSVG({ flipY: false });
 
       // 4. 构建 SVG 字符串 (固定为正方形)
@@ -635,7 +635,7 @@
         </div>`;
 
       // 5. Canvas绘制字形和布局信息
-      drawGlyphLayout(g, emSize, ascender, descender, hasUnicode);
+      drawGlyphLayout(g, emSize, ascent, descent, hasUnicode);
 
       // 6. 信息显示
       const unicodeStr = hasUnicode ? `U+${g.unicode.toString(16).toUpperCase()}` : "无编码";
@@ -671,7 +671,7 @@
       $('modal').classList.add('active');
     }
 
-    function drawGlyphLayout(g, emSize, ascender, descender, hasUnicode) {
+    function drawGlyphLayout(g, emSize, ascent, descent, hasUnicode) {
       const canvas = $('glyph-canvas');
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
@@ -687,15 +687,18 @@
       const emDisplaySize = emBottom - emTop;
       const emScale = emDisplaySize / emSize;
       const glyphLeft = thirdW;
-      const baselineY = emTop + ascender * emScale;
+      const baselineY = emTop + ascent * emScale;
 
       // 绘制em square边框
-      ctx.strokeStyle = '#e8e8e8';
+      ctx.strokeStyle = '#000';
       ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
       ctx.strokeRect(glyphLeft, emTop, emDisplaySize, emDisplaySize);
+      ctx.setLineDash([]);
 
       // 基线
-      ctx.strokeStyle = '#000';
+      ctx.strokeStyle = '#2196F3';
+      ctx.lineWidth = 1;
       ctx.setLineDash([4, 2]);
       ctx.beginPath();
       ctx.moveTo(glyphLeft - 30, baselineY);
@@ -703,8 +706,9 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // ascender线
+      // ascent线
       ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 1;
       ctx.setLineDash([4, 2]);
       ctx.beginPath();
       ctx.moveTo(glyphLeft - 30, emTop);
@@ -712,34 +716,122 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // descender线
+      // descent线
       ctx.strokeStyle = '#F44336';
+      ctx.lineWidth = 1;
       ctx.setLineDash([4, 2]);
       ctx.beginPath();
-      ctx.moveTo(glyphLeft - 30, emBottom);
-      ctx.lineTo(glyphLeft + emDisplaySize + 30, emBottom);
+      ctx.moveTo(glyphLeft - 30, baselineY - descent * emScale);
+      ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY - descent * emScale);
       ctx.stroke();
       ctx.setLineDash([]);
 
       // 用字体直接画字符
+      let bboxLeft = 0, bboxRight = 0, bboxAscent = 0, bboxDescent = 0;
+      let bboxW = 0, bboxH = 0;
       if (hasUnicode) {
         ctx.font = `${emDisplaySize}px CustomFont`;
         ctx.fillStyle = '#000';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(String.fromCodePoint(g.unicode), glyphLeft, baselineY);
+
+        const metrics = ctx.measureText(String.fromCodePoint(g.unicode));
+        bboxLeft = metrics.actualBoundingBoxLeft;
+        bboxRight = metrics.actualBoundingBoxRight;
+        bboxAscent = metrics.actualBoundingBoxAscent;
+        bboxDescent = metrics.actualBoundingBoxDescent;
+        bboxW = bboxLeft + bboxRight;
+        bboxH = bboxAscent + bboxDescent;
+      }
+
+      // 字框四条线
+      if (hasUnicode) {
+        const bboxX = glyphLeft - bboxLeft;
+        const bboxY = baselineY - bboxAscent;
+
+        ctx.strokeStyle = '#FF9800';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]);
+
+        // top
+        ctx.beginPath();
+        ctx.moveTo(glyphLeft - 30, bboxY);
+        ctx.lineTo(glyphLeft + emDisplaySize + 30, bboxY);
+        ctx.stroke();
+        // bottom
+        ctx.beginPath();
+        ctx.moveTo(glyphLeft - 30, bboxY + bboxH);
+        ctx.lineTo(glyphLeft + emDisplaySize + 30, bboxY + bboxH);
+        ctx.stroke();
+        // left
+        ctx.beginPath();
+        ctx.moveTo(bboxX, emTop - 30);
+        ctx.lineTo(bboxX, emTop + emDisplaySize + 30);
+        ctx.stroke();
+        // right
+        ctx.beginPath();
+        ctx.moveTo(bboxX + bboxW, emTop - 30);
+        ctx.lineTo(bboxX + bboxW, emTop + emDisplaySize + 30);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // 坐标轴（原点在基线与字符左边缘交点）
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]);
+        // x轴（水平，过原点）
+        ctx.beginPath();
+        ctx.moveTo(glyphLeft - 30, baselineY);
+        ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY);
+        ctx.stroke();
+        // y轴（垂直，过原点）
+        ctx.beginPath();
+        ctx.moveTo(glyphLeft, emTop - 30);
+        ctx.lineTo(glyphLeft, emTop + emDisplaySize + 30);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 标签（字体坐标：y向上为正，x向右为正，原点在基线与左边缘交点）
+        const toFontUnit = (canvasPx) => canvasPx / emScale;
+
+        ctx.font = '16px ui-monospace, SFMono-Regular, monospace';
+        ctx.fillStyle = '#FF9800';
+        ctx.textAlign = 'left';
+        ctx.fillText(`top: ${toFontUnit(bboxAscent).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + 6);
+        ctx.fillText(`bottom: ${(-toFontUnit(bboxDescent)).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + bboxH + 6);
+        ctx.textAlign = 'center';
+        ctx.fillText(`left: ${(-toFontUnit(bboxLeft)).toFixed(3)}`, bboxX, emTop - 40);
+        ctx.fillText(`right: ${toFontUnit(bboxRight).toFixed(3)}`, bboxX + bboxW, emTop - 40);
+
+        // 坐标轴标签
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'left';
+        ctx.fillText('+x', glyphLeft + emDisplaySize + 40, baselineY + 6);
+        ctx.textAlign = 'center';
+        ctx.fillText('+y', glyphLeft, emTop - 40);
       }
 
       // 标签
       ctx.font = '16px ui-monospace, SFMono-Regular, monospace';
-      ctx.fillStyle = '#86868b';
       ctx.textAlign = 'left';
       const labelX = glyphLeft + emDisplaySize + 40;
 
-      ctx.fillText('baseline', labelX, baselineY + 6);
-      ctx.fillText(`ascender: ${ascender}`, labelX, emTop + 6);
-      ctx.fillText(`descender: ${descender}`, labelX, emBottom + 6);
-      ctx.fillText(`em: ${emSize}`, labelX, emTop + emDisplaySize / 2 + 6);
+      ctx.fillStyle = '#2196F3';
+      ctx.fillText(`baseline: 0.000`, labelX, baselineY + 6);
+      ctx.fillStyle = '#4CAF50';
+      ctx.fillText(`ascent: ${ascent.toFixed(3)}`, labelX, emTop + 6);
+      ctx.fillStyle = '#F44336';
+      ctx.fillText(`descent: ${descent.toFixed(3)}`, labelX, baselineY - descent * emScale + 6);
+      ctx.fillStyle = '#86868b';
+      ctx.fillText(`em: ${emSize}`, glyphLeft + 4, emTop + 14);
+
+      if (hasUnicode) {
+        const bboxX = glyphLeft - bboxLeft;
+        const bboxY = baselineY - bboxAscent;
+        ctx.fillStyle = '#FF9800';
+      }
     }
 
     function closeModal(e) {
