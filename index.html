@@ -133,6 +133,12 @@
       text-overflow: ellipsis;
     }
 
+    .glyph-unicode {
+      font-size: 9px;
+      color: var(--text-gray);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
     /* 底部导航 */
     .nav-float {
       display: flex;
@@ -436,11 +442,6 @@
         <div class="value" id="st-range">-</div>
         <div class="sub" id="st-range-sub"></div>
       </div>
-      <div class="stat-card">
-        <div class="label">字形类型</div>
-        <div class="value" id="st-glyph-type">-</div>
-        <div class="sub" id="st-glyph-sub"></div>
-      </div>
       <div class="stat-card" style="grid-column: 1 / -1;">
         <div class="label">字体数据</div>
         <div class="name-list" id="st-names"></div>
@@ -602,10 +603,13 @@
 
       $('glyph-grid').innerHTML = slice.map((g, i) => {
         const path = g.getPath(15, 45, 40).toSVG({ flipY: false });
+        const hasUni = g.unicode !== undefined && !isNaN(g.unicode);
+        const uniStr = hasUni ? `U+${g.unicode.toString(16).toUpperCase().padStart(4, '0')}` : '';
         return `
           <div class="glyph-item" style="cursor:pointer" onclick="showDetail(${start + i})">
               <svg class="glyph-svg" viewBox="0 0 70 70">${path}</svg>
               <div class="glyph-name">${g.name || ''}</div>
+              ${uniStr ? `<div class="glyph-unicode">${uniStr}</div>` : ''}
           </div>`;
       }).join('');
 
@@ -616,11 +620,31 @@
     }
 
     $('search').oninput = (e) => {
-      const k = e.target.value.toLowerCase();
-      filtered = allGlyphs.filter(g => (g.name || '').toLowerCase().includes(k));
+      const raw = e.target.value.trim();
+      filtered = raw ? allGlyphs.filter(g => matchGlyph(g, raw)) : allGlyphs;
       page = 1;
       render();
     };
+
+    function matchGlyph(g, raw) {
+      const lower = raw.toLowerCase();
+      const name = (g.name || '').toLowerCase();
+      const hasUni = g.unicode !== undefined && !isNaN(g.unicode);
+      const char = hasUni ? String.fromCodePoint(g.unicode) : '';
+      const charLower = char.toLowerCase();
+
+      // 字符本身或名字匹配
+      if (name.includes(lower) || charLower.includes(lower)) return true;
+
+      // 尝试解析为 Unicode 码点（十六进制）
+      const hex = raw.replace(/^(?:U\+|0x)/i, '');
+      if (/^[0-9a-f]+$/i.test(hex)) {
+        const cp = parseInt(hex, 16);
+        if (hasUni && g.unicode === cp) return true;
+      }
+
+      return false;
+    }
 
     $('size-slider').oninput = (e) => {
       $('test-input').style.fontSize = e.target.value + 'px';
@@ -641,12 +665,12 @@
 
       // 2. 获取字体设计参数，计算缩放比例
       const emSize = fontData.unitsPerEm;
-      const ascent = fontData.ascender;
-      const descent = fontData.descender;
+      const ascender = fontData.ascender;
+      const descender = fontData.descender;
       const scale = exportSize / emSize;
 
-      // 3. 创建导出路径：将 y 坐标设为 ascent 以保证字符落在画布内
-      const path = g.getPath(0, ascent * scale, exportSize);
+      // 3. 创建导出路径：将 y 坐标设为 ascender 以保证字符落在画布内
+      const path = g.getPath(0, ascender * scale, exportSize);
       const pathData = path.toSVG({ flipY: false });
 
       // 4. 构建 SVG 字符串 (固定为正方形)
@@ -661,10 +685,10 @@
         </div>`;
 
       // 5. Canvas绘制字形和布局信息
-      drawGlyphLayout(g, emSize, ascent, descent, hasUnicode);
+      drawGlyphLayout(g, emSize, ascender, descender, hasUnicode);
 
       // 6. 信息显示
-      const unicodeStr = hasUnicode ? `U+${g.unicode.toString(16).toUpperCase()}` : "无编码";
+      const unicodeStr = hasUnicode ? `U+${g.unicode.toString(16).toUpperCase().padStart(4, '0')}` : "无编码";
       $('m-info').innerHTML = `
         <div><strong>名称:</strong> ${g.name || 'unnamed'}</div>
         <div><strong>编码:</strong> ${unicodeStr}</div>
@@ -697,7 +721,7 @@
       $('modal').classList.add('active');
     }
 
-    function drawGlyphLayout(g, emSize, ascent, descent, hasUnicode) {
+    function drawGlyphLayout(g, emSize, ascender, descender, hasUnicode) {
       const canvas = $('glyph-canvas');
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
@@ -713,7 +737,7 @@
       const emDisplaySize = emBottom - emTop;
       const emScale = emDisplaySize / emSize;
       const glyphLeft = thirdW;
-      const baselineY = emTop + ascent * emScale;
+      const baselineY = emTop + ascender * emScale;
 
       // 绘制em square边框
       ctx.strokeStyle = '#000';
@@ -732,7 +756,7 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // ascent线
+      // ascender线
       ctx.strokeStyle = '#4CAF50';
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 2]);
@@ -742,18 +766,18 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // descent线
+      // descender线
       ctx.strokeStyle = '#F44336';
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 2]);
       ctx.beginPath();
-      ctx.moveTo(glyphLeft - 30, baselineY - descent * emScale);
-      ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY - descent * emScale);
+      ctx.moveTo(glyphLeft - 30, baselineY - descender * emScale);
+      ctx.lineTo(glyphLeft + emDisplaySize + 30, baselineY - descender * emScale);
       ctx.stroke();
       ctx.setLineDash([]);
 
       // 用字体直接画字符
-      let bboxLeft = 0, bboxRight = 0, bboxAscent = 0, bboxDescent = 0;
+      let bboxLeft = 0, bboxRight = 0, bboxAscender = 0, bboxDescender = 0;
       let bboxW = 0, bboxH = 0;
       if (hasUnicode) {
         ctx.font = `${emDisplaySize}px CustomFont`;
@@ -765,16 +789,16 @@
         const metrics = ctx.measureText(String.fromCodePoint(g.unicode));
         bboxLeft = metrics.actualBoundingBoxLeft;
         bboxRight = metrics.actualBoundingBoxRight;
-        bboxAscent = metrics.actualBoundingBoxAscent;
-        bboxDescent = metrics.actualBoundingBoxDescent;
+        bboxAscender = metrics.actualBoundingBoxAscender;
+        bboxDescender = metrics.actualBoundingBoxDescender;
         bboxW = bboxLeft + bboxRight;
-        bboxH = bboxAscent + bboxDescent;
+        bboxH = bboxAscender + bboxDescender;
       }
 
       // 字框四条线
       if (hasUnicode) {
         const bboxX = glyphLeft - bboxLeft;
-        const bboxY = baselineY - bboxAscent;
+        const bboxY = baselineY - bboxAscender;
 
         ctx.strokeStyle = '#FF9800';
         ctx.lineWidth = 1;
@@ -825,8 +849,8 @@
         ctx.font = '16px ui-monospace, SFMono-Regular, monospace';
         ctx.fillStyle = '#FF9800';
         ctx.textAlign = 'left';
-        ctx.fillText(`top: ${toFontUnit(bboxAscent).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + 6);
-        ctx.fillText(`bottom: ${(-toFontUnit(bboxDescent)).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + bboxH + 6);
+        ctx.fillText(`top: ${toFontUnit(bboxAscender).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + 6);
+        ctx.fillText(`bottom: ${(-toFontUnit(bboxDescender)).toFixed(3)}`, glyphLeft + emDisplaySize + 40, bboxY + bboxH + 6);
         ctx.textAlign = 'center';
         ctx.fillText(`left: ${(-toFontUnit(bboxLeft)).toFixed(3)}`, bboxX, emTop - 40);
         ctx.fillText(`right: ${toFontUnit(bboxRight).toFixed(3)}`, bboxX + bboxW, emTop - 40);
@@ -847,15 +871,15 @@
       ctx.fillStyle = '#2196F3';
       ctx.fillText(`baseline: 0.000`, labelX, baselineY + 6);
       ctx.fillStyle = '#4CAF50';
-      ctx.fillText(`ascent: ${ascent.toFixed(3)}`, labelX, emTop + 6);
+      ctx.fillText(`ascender: ${ascender.toFixed(3)}`, labelX, emTop + 6);
       ctx.fillStyle = '#F44336';
-      ctx.fillText(`descent: ${descent.toFixed(3)}`, labelX, baselineY - descent * emScale + 6);
+      ctx.fillText(`descender: ${descender.toFixed(3)}`, labelX, baselineY - descender * emScale + 6);
       ctx.fillStyle = '#86868b';
       ctx.fillText(`em: ${emSize}`, glyphLeft + 4, emTop + 14);
 
       if (hasUnicode) {
         const bboxX = glyphLeft - bboxLeft;
-        const bboxY = baselineY - bboxAscent;
+        const bboxY = baselineY - bboxAscender;
         ctx.fillStyle = '#FF9800';
       }
     }
@@ -954,14 +978,8 @@
       const max = Math.max(...unicodes);
 
       $('st-count').textContent = count;
-      $('st-range').textContent = `U+${min.toString(16).toUpperCase()} ~ U+${max.toString(16).toUpperCase()}`;
+      $('st-range').textContent = `U+${min.toString(16).toUpperCase().padStart(4, '0')} ~ U+${max.toString(16).toUpperCase().padStart(4, '0')}`;
       $('st-range-sub').textContent = `${min} ~ ${max} (${(max - min + 1).toLocaleString()} 码位)`;
-
-      // 字形类型
-      const simple = allGlyphs.filter(g => !g.components || g.components.length === 0).length;
-      const composite = allGlyphs.length - simple;
-      $('st-glyph-type').textContent = `${simple} 简单 / ${composite} 复合`;
-      $('st-glyph-sub').textContent = `共 ${allGlyphs.length} 个字形`;
 
       // 字体全部数据（跳过字形和大型映射表）
       const nameList = $('st-names');
@@ -969,7 +987,7 @@
       let rowCount = 0;
       const MAX_ROWS = 500;
       const MAX_DEPTH = 5;
-      const SKIP_KEYS = new Set(['glyphs', 'glyphNames', 'glyphIndexMap', 'cmap', 'tables', 'kern', 'gsub', 'gpos', 'gdef', 'os2', 'head', 'hhea', 'hmtx', 'loca', 'glyf', 'cff', 'fvar', 'gvar', 'stat', 'encoding', 'position']);
+      const SKIP_KEYS = new Set(['glyphs', 'glyphNames', 'glyphIndexMap', 'cmap', 'tables', 'kern', 'gsub', 'gpos', 'gdef', 'os2', 'head', 'hhea', 'hmtx', 'loca', 'glyf', 'cff', 'fvar', 'gvar', 'stat', 'encoding', 'position', 'unitsPerEm', 'ascender', 'descender']);
       function addRow(path, val) {
         if (rowCount >= MAX_ROWS) return;
         rowCount++;
@@ -1142,7 +1160,7 @@
         canvas.dataset.plane = plane;
         const label = document.createElement('div');
         label.className = 'plane-label';
-        label.textContent = plane === 0 ? 'BMP (U+0000~U+FFFF)' : `Plane ${plane} (U+${(plane * 0x10000).toString(16).toUpperCase()}~U+${((plane + 1) * 0x10000 - 1).toString(16).toUpperCase()})`;
+        label.textContent = plane === 0 ? 'BMP (U+0000~U+FFFF)' : `Plane ${plane} (U+${(plane * 0x10000).toString(16).toUpperCase().padStart(4, '0')}~U+${((plane + 1) * 0x10000 - 1).toString(16).toUpperCase().padStart(4, '0')})`;
         wrap.appendChild(canvas);
         wrap.appendChild(label);
         container.appendChild(wrap);
