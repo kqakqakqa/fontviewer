@@ -789,8 +789,8 @@
         const metrics = ctx.measureText(String.fromCodePoint(g.unicode));
         bboxLeft = metrics.actualBoundingBoxLeft;
         bboxRight = metrics.actualBoundingBoxRight;
-        bboxAscender = metrics.actualBoundingBoxAscender;
-        bboxDescender = metrics.actualBoundingBoxDescender;
+        bboxAscender = metrics.actualBoundingBoxAscent;
+        bboxDescender = metrics.actualBoundingBoxDescent;
         bboxW = bboxLeft + bboxRight;
         bboxH = bboxAscender + bboxDescender;
       }
