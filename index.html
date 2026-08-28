@@ -591,6 +591,7 @@
         render();
         updateStats();
       } catch (err) {
+        console.error('字体加载失败:', err);
         alert('字体加载失败');
       }
     };
@@ -902,15 +903,29 @@
       return false;
     }
 
-    // 预构建 unicode Set，用于 O(1) 查找
+    // 预构建 cmap 中的 Unicode 映射，用于 O(1) 查找；空字形映射也算覆盖
     let glyphUnicodeSet = null;
     function buildUnicodeSet() {
       glyphUnicodeSet = new Set();
       if (!fontData) return;
-      const glyphs = Object.values(fontData.glyphs.glyphs);
-      for (const g of glyphs) {
-        if (g.unicode !== undefined && !isNaN(g.unicode)) {
-          glyphUnicodeSet.add(g.unicode);
+      const glyphIndexMap = (fontData.tables && fontData.tables.cmap && fontData.tables.cmap.glyphIndexMap)
+        || (fontData.encoding && fontData.encoding.glyphIndexMap)
+        || (fontData.encoding && fontData.encoding.cmap && fontData.encoding.cmap.glyphIndexMap);
+      if (glyphIndexMap) {
+        for (const [unicode, glyphIndex] of Object.entries(glyphIndexMap)) {
+          if (Number(glyphIndex) > 0) glyphUnicodeSet.add(Number(unicode));
+        }
+      }
+
+      // 某些 opentype.js 版本不暴露 glyphIndexMap，退回使用解析后的字形映射。
+      if (glyphUnicodeSet.size === 0) {
+        for (const glyph of Object.values(fontData.glyphs.glyphs)) {
+          const unicodes = Array.isArray(glyph.unicodes) ? glyph.unicodes : [glyph.unicode];
+          for (const unicode of unicodes) {
+            if (unicode !== undefined && !isNaN(unicode) && glyph.index > 0) {
+              glyphUnicodeSet.add(Number(unicode));
+            }
+          }
         }
       }
     }
@@ -971,11 +986,14 @@
       $('stats-panel').classList.add('active');
       $('coverage-panel').style.display = 'block';
 
-      const unicodeGlyphs = allGlyphs.filter(g => g.unicode);
-      const count = unicodeGlyphs.length;
-      const unicodes = unicodeGlyphs.map(g => g.unicode);
-      const min = Math.min(...unicodes);
-      const max = Math.max(...unicodes);
+      const unicodes = [...glyphUnicodeSet];
+      const count = unicodes.length;
+      let min = Infinity;
+      let max = -Infinity;
+      for (const unicode of unicodes) {
+        if (unicode < min) min = unicode;
+        if (unicode > max) max = unicode;
+      }
 
       $('st-count').textContent = count;
       $('st-range').textContent = `U+${min.toString(16).toUpperCase().padStart(4, '0')} ~ U+${max.toString(16).toUpperCase().padStart(4, '0')}`;
@@ -1138,7 +1156,10 @@
       container.innerHTML = '';
 
       // 确定需要绘制哪些平面（从0到最后一个字符所在的平面）
-      const maxUnicode = unicodes.length > 0 ? Math.max(...unicodes) : 0;
+      let maxUnicode = 0;
+      for (const unicode of unicodes) {
+        if (unicode > maxUnicode) maxUnicode = unicode;
+      }
       const maxPlane = Math.floor(maxUnicode / 0x10000);
       const planes = [];
       for (let p = 0; p <= maxPlane; p++) {
