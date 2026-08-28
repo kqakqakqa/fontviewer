@@ -59,6 +59,12 @@
     }
 
     /* 试字区 */
+    .font-title {
+      margin-bottom: 12px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
     .preview-box {
       background: var(--bg-gray);
       padding: 20px;
@@ -423,6 +429,8 @@
     </div>
   </header>
 
+  <div class="font-title" id="font-name">等待载入字体</div>
+
   <div class="preview-box">
     <textarea id="test-input" spellcheck="false">The quick brown fox jumps over the lazy dog.</textarea>
     <div class="size-info">
@@ -584,6 +592,7 @@
         }
 
         fontData = opentype.parse(parseBuffer);
+        $('font-name').textContent = getFontName(fontData);
         allGlyphs = Object.values(fontData.glyphs.glyphs).filter(g => g.unicode || g.name);
         filtered = allGlyphs;
         page = 1;
@@ -595,6 +604,31 @@
         alert('字体加载失败');
       }
     };
+
+    function getFontName(font) {
+      const names = font.names;
+      if (!names) return '未读取到字体名称';
+
+      const findName = value => {
+        if (typeof value === 'string') return value;
+        if (!value || typeof value !== 'object') return null;
+        for (const lang of ['zh', 'en']) {
+          if (typeof value[lang] === 'string') return value[lang];
+        }
+        for (const child of Object.values(value)) {
+          const name = findName(child);
+          if (name) return name;
+        }
+        return null;
+      };
+
+      for (const nameKey of ['preferredFamily', 'fontFamily']) {
+        const name = findName(names[nameKey]) || findName(names.windows && names.windows[nameKey])
+          || findName(names.macintosh && names.macintosh[nameKey]);
+        if (name) return name;
+      }
+      return '未读取到字体名称';
+      }
 
     function render() {
       if (!fontData) return;
